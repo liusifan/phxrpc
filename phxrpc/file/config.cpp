@@ -39,11 +39,14 @@ Config :: ~Config() {
 }
 
 bool Config::InitConfig(const char * path) {
-    return FileUtils::ReadFile(path, &content_);
+    bool ret = FileUtils::ReadFile(path, &content_);
+    if( ret ) content_.insert( 0, "\n" );
+    return ret;
 }
 
 void Config::SetContent(const std::string & content) {
-    content_ = content;
+    content_.clear();
+    content_.append( "\n" ).append( content );
 }
 
 bool Config::ReadItem(const char * section, const char * key, int * value) {

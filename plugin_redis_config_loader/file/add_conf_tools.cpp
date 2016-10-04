@@ -31,6 +31,13 @@ int main(int argc, const char *argv[])
         return -1;
     }
 
+    {
+        int tmp = 0;
+        phxrpc::Config config;
+        config.InitConfig( redis_cli_conf );
+        bool ret = config.ReadItem( "Server", "SererCount", &tmp );
+    }
+
     r3c::CRedisClient * client = NULL;
     phxrpc::RedisClientConfig config;
 

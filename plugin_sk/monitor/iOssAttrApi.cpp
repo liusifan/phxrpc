@@ -37,6 +37,10 @@
 {\
 }
 
+#ifdef __APPLE__
+    #define caddr_t (void*)
+#endif
+
 using namespace phxrpc;
 
 static protected_addr_holder_t *g_ptProtectedAddrHolder = NULL;
@@ -102,12 +106,12 @@ int InitNewOssAddr() {
             g_ptNewProtectedAddrHolder->head_protected_addr = (char *) (valloc(iAllocSize));
             g_ptNewProtectedAddrHolder->tail_protected_addr = g_ptNewProtectedAddrHolder->head_protected_addr
                     + iAllocSize - iPageSize;
-            if (mprotect((caddr_t) g_ptNewProtectedAddrHolder->head_protected_addr, iPageSize, PROT_NONE) < 0) {
+            if (mprotect((void*) g_ptNewProtectedAddrHolder->head_protected_addr, iPageSize, PROT_NONE) < 0) {
                 LOGERR("%s mprotect errno %d, errno str %s\n", __func__, errno, strerror(errno));
                 return -4;
             }
 
-            if (mprotect((caddr_t) g_ptNewProtectedAddrHolder->tail_protected_addr, iPageSize, PROT_NONE) < 0) {
+            if (mprotect((void*) g_ptNewProtectedAddrHolder->tail_protected_addr, iPageSize, PROT_NONE) < 0) {
                 LOGERR("%s mprotect errno %d, errno str %s\n", __func__, errno, strerror(errno));
                 return -5;
             }
@@ -161,7 +165,7 @@ int InitOldOssAddr() {
 
         if (true) {
             g_ptProtectedAddrHolder->protected_addr = (char *) (valloc(iPageSize + sizeof(oss_attr_t)));
-            if (mprotect((caddr_t) g_ptProtectedAddrHolder->protected_addr, iPageSize, PROT_NONE) < 0) {
+            if (mprotect((void*) g_ptProtectedAddrHolder->protected_addr, iPageSize, PROT_NONE) < 0) {
                 LOGERR("%s mprotect errno %d, errno str %s\n", __func__, errno, strerror(errno));
                 return -4;
             }

@@ -33,11 +33,11 @@ RedisClientConfigLoader::RedisClientConfigLoader() {
 
     phxrpc::RedisClientConfig config;
 
-    if( config.Read("/home/qspace/etc/route/shanghai/mmminichat_route.conf") ) {
+    if( config.Read("~/etc/route/shanghai/mmminichat_route.conf") ) {
         client_ = new r3c::CRedisClient( config.GetNodes() );
     } else {
         log(LOG_ERR, "RedisClientConfigLoader::%s read redis client config %s failed",
-                __func__, "/home/qspace/etc/minichat/client/redis_client.conf");
+                __func__, "~/etc/client/redis_client.conf");
         client_ = NULL;
     }
 
