@@ -49,6 +49,8 @@ class ClientConfig {
 
     const Endpoint_t * GetByIndex(const size_t index) const;
 
+    size_t GetCount() const;
+
     int GetConnectTimeoutMS();
 
     int GetSocketTimeoutMS();

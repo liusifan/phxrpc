@@ -137,6 +137,10 @@ const Endpoint_t * ClientConfig::GetByIndex(const size_t index) const {
     return ret;
 }
 
+size_t ClientConfig :: GetCount() const {
+    return endpoints_.size();
+}
+
 int ClientConfig::GetConnectTimeoutMS() {
     return connect_timeout_ms_;
 }

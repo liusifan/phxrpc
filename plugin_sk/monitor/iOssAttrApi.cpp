@@ -38,7 +38,7 @@
 }
 
 #ifdef __APPLE__
-    #define caddr_t (void*)
+    #define SHM_REMAP 0
 #endif
 
 using namespace phxrpc;

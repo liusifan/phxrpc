@@ -1,10 +1,13 @@
 
 version = 0.8.0
 
+DIRS = phxrpc codegen \
+	   plugin_elpp/file plugin_redis_config_loader/file plugin_sk/monitor
+
 all:
-	@( cd phxrpc; make )
-	@( cd codegen; make )
-	@( cd plugin_elpp/file; make )
+	for d in $(DIRS); do \
+		cd $$d; make; cd -; \
+	done
 	@( cd sample; test -f Makefile || ./regen.sh; make )
 
 boost:
@@ -19,11 +22,8 @@ phxrpc-$(version).src.tar.gz:
 	@(cd ..; rm phxrpc-$(version))
 
 clean:
-	@( rm -rf lib/*; )
-	@( cd phxrpc; make clean )
-	@( cd codegen; make clean )
+	$(RM) lib/*;
 	@( cd sample; test -f Makefile && make clean )
-	@( cd plugin_boost; make clean )
-	@( cd plugin_darwin; make clean )
-	@( cd plugin_elpp/file; make clean )
-
+	for d in $(DIRS); do \
+		cd $$d; make clean; cd -; \
+	done
