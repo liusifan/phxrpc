@@ -15,20 +15,12 @@ ifeq ($(OS),Darwin)
 	PLUGIN_BOOST_LDFLAGS = -Wl,-force_load,$(PHXRPC_ROOT)/lib/libphxrpc_plugin_boost.a \
 			-L$(BOOST_ROOT)/lib/ -lboost_context
 	PLUGIN_ELPP_LDFLAGS = -Wl,-force_load,$(PHXRPC_ROOT)/lib/libphxrpc_plugin_elpp.a
-	PLUGIN_REDIS_CONFIG_LOADER_LDFLAGS = -Wl,-force_load,$(PHXRPC_ROOT)/lib/libphxrpc_plugin_redis_config_loader.a
-	PLUGIN_SK_MONITOR_LDFLAGS = -Wl,-force_load,$(PHXRPC_ROOT)/lib/libphxrpc_plugin_monitor_sk.a
 else
 	PLUGIN_BOOST_LDFLAGS = -Wl,--whole-archive -L$(PHXRPC_ROOT)/lib/ -lphxrpc_plugin_boost \
 			-Wl,--no-whole-archive -L$(BOOST_ROOT)/lib/ -lboost_context
 	PLUGIN_ELPP_LDFLAGS = -Wl,--whole-archive -L$(PHXRPC_ROOT)/lib/ -lphxrpc_plugin_elpp \
 			-Wl,--no-whole-archive
-	PLUGIN_REDIS_CONFIG_LOADER_LDFLAGS = -Wl,--whole-archive -L$(PHXRPC_ROOT)/lib/ -lphxrpc_plugin_redis_config_loader \
-			-Wl,--no-whole-archive
-	PLUGIN_SK_MONITOR_LDFLAGS = -Wl,--whole-archive -L$(PHXRPC_ROOT)/lib/ -lphxrpc_plugin_monitor_sk \
-			-Wl,--no-whole-archive
 endif
-
-PLUGIN_SK_MONITOR_LDFLAGS :=
 
 #--------------------------------------------------------------------
 
