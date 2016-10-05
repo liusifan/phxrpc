@@ -2,7 +2,7 @@
 version = 0.8.0
 
 DIRS = phxrpc codegen \
-	   plugin_elpp/file plugin_redis_config_loader/file plugin_sk/monitor
+	   plugin_elpp/file
 
 all:
 	for d in $(DIRS); do \
