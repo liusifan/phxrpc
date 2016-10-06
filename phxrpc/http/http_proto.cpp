@@ -167,9 +167,12 @@ int HttpProto::SendResp(BaseTcpStream & socket, const HttpResponse & resp) {
     }
 
     if (resp.GetContent().size() > 0) {
-        if (NULL == resp.GetHeaderValue(HttpMessage::HEADER_CONTENT_LENGTH)) {
-            socket << HttpMessage::HEADER_CONTENT_LENGTH << ": " << resp.GetContent().size() << "\r\n";
-        }
+        //if (NULL == resp.GetHeaderValue(HttpMessage::HEADER_CONTENT_LENGTH)) {
+            //socket << HttpMessage::HEADER_CONTENT_LENGTH << ": " << resp.GetContent().size() << "\r\n";
+        //}
+        socket << HttpMessage::HEADER_CONTENT_LENGTH << ": " << resp.GetContent().size() << "\r\n";
+    } else {
+        socket << HttpMessage::HEADER_CONTENT_LENGTH << ": " << 0 << "\r\n";
     }
 
     socket << "\r\n";
