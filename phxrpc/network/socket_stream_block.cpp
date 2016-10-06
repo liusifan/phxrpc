@@ -125,7 +125,7 @@ bool BlockTcpUtils::Open(BlockTcpStream * stream, const char * ip, unsigned shor
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
     if (sockfd < 0) {
-        phxrpc::log(LOG_WARNING, "TcpSocket::Connect().socket()=%d", sockfd);
+        phxrpc::log(LOG_WARNING, "socket = %d", sockfd);
         return false;
     }
 
@@ -137,7 +137,7 @@ bool BlockTcpUtils::Open(BlockTcpStream * stream, const char * ip, unsigned shor
         in_addr.sin_addr.s_addr = inet_addr(bind_addr);
         in_addr.sin_port = bind_port;
         if (bind(sockfd, (struct sockaddr *) &in_addr, sizeof(in_addr)) < 0) {
-            phxrpc::log(LOG_WARNING, "WARN: bind( %d, %s, ... ) fail", sockfd, bind_addr);
+            phxrpc::log(LOG_WARNING, "bind( %d, %s, ... ) fail", sockfd, bind_addr);
         }
     }
 
@@ -161,11 +161,12 @@ bool BlockTcpUtils::Open(BlockTcpStream * stream, const char * ip, unsigned shor
         if ((POLLOUT & revents)) {
             socklen_t len = sizeof(error);
             if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (char*) &error, &len) < 0) {
-                phxrpc::log(LOG_ERR, "Socket(%d)::connectNonblock().getsockopt() < 0", sockfd);
+                phxrpc::log(LOG_ERR, "socket(%d) getsockopt() < 0", sockfd);
                 error = -1;
             }
         } else {
-            //phxrpc::log(LOG_ERR, "Socket(%d)::connectNonblock().poll()=%d, revents=%d", sockfd, ret, revents);
+            //phxrpc::log(LOG_ERR, "socket(%d) poll() %d, to %d, revents %d, errno %d, %s",
+                    //sockfd, ret, connect_timeout_ms, revents, errno, strerror( errno ) );
             error = -1;
         }
     }
@@ -249,6 +250,8 @@ int BlockTcpUtils::Poll(int fd, int events, int * revents, int timeout_ms) {
 
     errno = 0;
 
+    phxrpc::log(LOG_INFO, "poll( {%d, %d}, %d )", fd, events, timeout_ms );
+
     // retry again for EINTR
     for (int i = 0; i < 2; i++) {
         ret = ::poll(&pfd, 1, timeout_ms);
@@ -257,8 +260,11 @@ int BlockTcpUtils::Poll(int fd, int events, int * revents, int timeout_ms) {
         break;
     }
 
-    if (0 == ret)
+    if (0 == ret) {
+        phxrpc::log(LOG_ERR, "poll( {%d, %d}, %d ) %d, revents %d, errno %d, %s",
+            fd, events, timeout_ms, ret, pfd.revents, errno, strerror( errno ) );
         errno = ETIMEDOUT;
+    }
 
     *revents = pfd.revents;
 
