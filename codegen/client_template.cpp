@@ -107,23 +107,19 @@ const char * PHXRPC_CLIENT_FUNC_TEMPLATE =
         phxrpc::log(LOG_ERR, "%s %s config is NULL", __func__, package_name_.c_str());
         return -1;
     }
-    const phxrpc::Endpoint_t * ep = config_->GetRandom();
 
-    if(ep != nullptr) {
-        phxrpc::BlockTcpStream socket;
-        bool open_ret = phxrpc::PhxrpcTcpUtils::Open(&socket, ep->ip, ep->port,
-                    config_->GetConnectTimeoutMS(), NULL, 0, 
-                    *(global_$ClientClassLower$_monitor_.get()));
-        if ( open_ret ) {
-            socket.SetTimeout(config_->GetSocketTimeoutMS());
+    int ret = phxrpc::ClientCall( *config_, *(global_$ClientClassLower$_monitor_.get()),
+            [=,&req,&resp]( phxrpc::BaseTcpStream & socket ) -> int {
+                $StubClass$ stub( socket, *(global_$ClientClassLower$_monitor_.get()) );
+                stub.SetConfig( config_ );
+                return stub.$Func$( req, resp );
+            },
+            [=]( phxrpc::ClientConfig config ) -> const phxrpc::Endpoint_t * {
+                return config.GetRandom();
+            }
+    );
 
-            $StubClass$ stub(socket, *(global_$ClientClassLower$_monitor_.get()));
-            stub.SetConfig(config_);
-            return stub.$Func$(req, resp);
-        } 
-    }
-
-    return -1;
+    return ret;
 }
 )";
 

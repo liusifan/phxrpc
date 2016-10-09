@@ -36,6 +36,18 @@ typedef struct tagEndpoint {
     int port;
 } Endpoint_t;
 
+inline bool EndPointCmp( const Endpoint_t * ep1, const Endpoint_t * ep2 ) {
+    int ret = strcmp( ep1->ip, ep2->ip );
+
+    if( ret < 0 ) {
+        return true;
+    } else if( ret > 0 ) {
+        return false;
+    } else {
+        return ep1->port < ep2->port;
+    }
+}
+
 class ClientConfig {
  public:
     ClientConfig();
