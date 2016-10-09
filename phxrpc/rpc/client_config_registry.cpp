@@ -105,10 +105,10 @@ int ClientConfigRegistry::Register(const char * package_name) {
 ClientConfig * ClientConfigRegistry::GetConfig(const char * package_name) {
     auto it = config_map_.find(std::string(package_name));
     if(it == config_map_.end()) {
-        log(LOG_ERR, "ClientConfigRegistry::%s package %s not registered", __func__, package_name);
+        //log(LOG_ERR, "ClientConfigRegistry::%s package %s not registered", __func__, package_name);
         return NULL;
     } else {
-        log(LOG_ERR, "ClientConfigRegistry::%s for %s success", __func__, package_name);
+        //log(LOG_ERR, "ClientConfigRegistry::%s for %s success", __func__, package_name);
         return it->second->curr_config;
     }
 }

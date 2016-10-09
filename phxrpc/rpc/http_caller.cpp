@@ -48,7 +48,7 @@ HttpResponse & HttpCaller::GetResponse() {
 }
 
 void HttpCaller::SetIsEnableCliFr( const bool is_enable_cli_fr ) {
-    phxrpc::log(LOG_DEBUG, "%s is_enable_cli_fr %d", __func__, is_enable_cli_fr);
+    //phxrpc::log(LOG_DEBUG, "%s is_enable_cli_fr %d", __func__, is_enable_cli_fr);
     is_enable_cli_fr_ = is_enable_cli_fr;
 }
 
@@ -76,20 +76,22 @@ int HttpCaller::Call(const google::protobuf::MessageLite & request, google::prot
     uint32_t svr_ip = 0;
     uint32_t svr_port = 0;
 
-    phxrpc::log(LOG_DEBUG, "%s is_enable_cli_fr %d req qos info %s",
-            __func__, is_enable_cli_fr_,
-            FastRejectQoSMgr::GetReqQoSInfo()?FastRejectQoSMgr::GetReqQoSInfo():"");
+    //phxrpc::log(LOG_DEBUG, "%s is_enable_cli_fr %d req qos info %s",
+            //__func__, is_enable_cli_fr_,
+            //FastRejectQoSMgr::GetReqQoSInfo()?FastRejectQoSMgr::GetReqQoSInfo():"");
 
     bool get_remote_host = socket_.GetRemoteHost(&svr_ip, (int*)&svr_port); 
-    if(get_remote_host && is_enable_cli_fr_) {
-        //cli fr
-        if(FRClient::GetDefault()->IsSvrBlocked(svr_ip, svr_port, FastRejectQoSMgr::GetReqQoSInfo())) {
-            phxrpc::log(LOG_DEBUG, "%s req hit cli rfr %s ", __func__, 
-            FastRejectQoSMgr::GetReqQoSInfo()?FastRejectQoSMgr::GetReqQoSInfo():"");
-            return -206;
+    if(get_remote_host) {
+        if(is_enable_cli_fr_) {
+            //cli fr
+            if(FRClient::GetDefault()->IsSvrBlocked(svr_ip, svr_port, FastRejectQoSMgr::GetReqQoSInfo())) {
+                phxrpc::log(LOG_DEBUG, "%s req hit cli rfr %s ", __func__, 
+                        FastRejectQoSMgr::GetReqQoSInfo()?FastRejectQoSMgr::GetReqQoSInfo():"");
+                return -206;
+            }
         }
     } else {
-        phxrpc::log(LOG_DEBUG, "%s get_remote_host failed ", __func__);
+        phxrpc::log(LOG_ERR, "%s get_remote_host failed ", __func__);
     }
     
     if (!request.SerializeToString(&request_.GetContent())) {
@@ -109,10 +111,13 @@ int HttpCaller::Call(const google::protobuf::MessageLite & request, google::prot
                    response_.GetContent().size(), call_begin, Timer::GetSteadyClockMS() );
 
     if (ret != 0) {
+        phxrpc::log(LOG_ERR, "%s Post failed ret %d", __func__, ret);
         return ret;
     }
 
     if (!response->ParseFromString(response_.GetContent())) {
+        phxrpc::log(LOG_ERR, "%s response ParseFromString failed content len %zu",
+                __func__, response_.GetContent().size());
         return -1;
     }
 
@@ -122,8 +127,8 @@ int HttpCaller::Call(const google::protobuf::MessageLite & request, google::prot
     const char * resp_qos_info = response_.GetHeaderValue(HttpMessage::HEADER_X_PHXRPC_QOS_RESP);
     if(resp_qos_info) {
 
-        phxrpc::log(LOG_DEBUG, "%s resp_qos_info %s",
-                __func__, resp_qos_info);
+        //phxrpc::log(LOG_DEBUG, "%s resp_qos_info %s",
+                //__func__, resp_qos_info);
 
         if(get_remote_host) {
             char * pos = (char*)strstr(resp_qos_info, "_");
@@ -134,15 +139,15 @@ int HttpCaller::Call(const google::protobuf::MessageLite & request, google::prot
                 (*pos) = '_';
 
 
-                phxrpc::log(LOG_DEBUG, "%s resp_qos_info %s svr_ip %u svr_port %u "
-                        "svr_business_priority %d svr_user_priority %d", __func__,
-                        resp_qos_info, svr_ip, svr_port, svr_business_priority,
-                        svr_user_priority);
+                //phxrpc::log(LOG_DEBUG, "%s resp_qos_info %s svr_ip %u svr_port %u "
+                        //"svr_business_priority %d svr_user_priority %d", __func__,
+                        //resp_qos_info, svr_ip, svr_port, svr_business_priority,
+                        //svr_user_priority);
                 lb_stat_report(svr_ip, svr_port, svr_business_priority, svr_user_priority);
             }
         }
     } else {
-        phxrpc::log(LOG_DEBUG, "%s no resp_qos_info", __func__);
+        phxrpc::log(LOG_ERR, "%s no resp_qos_info", __func__);
     }
 
     if( ret < 0 ) {

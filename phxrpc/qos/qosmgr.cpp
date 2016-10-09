@@ -38,8 +38,13 @@ typedef struct _QoSInfo {
 } QoSInfo;
 
 static __thread QoSInfo g_qos_info;
+static __thread bool g_is_init_qos_info = false;
 
 void FastRejectQoSMgr::SetReqQoSInfo(const char * req_qos_info) {
+    if(!g_is_init_qos_info) {
+        memset(g_qos_info.req_qos_info, 0x0, sizeof(g_qos_info.req_qos_info)); 
+        g_is_init_qos_info = true;
+    }
     if(req_qos_info) {
         snprintf(g_qos_info.req_qos_info, sizeof(g_qos_info.req_qos_info), 
                 "%s", req_qos_info);
@@ -49,7 +54,10 @@ void FastRejectQoSMgr::SetReqQoSInfo(const char * req_qos_info) {
 }
 
 const char * FastRejectQoSMgr::GetReqQoSInfo() {
-
+    if(!g_is_init_qos_info) {
+        memset(g_qos_info.req_qos_info, 0x0, sizeof(g_qos_info.req_qos_info)); 
+        g_is_init_qos_info = true;
+    }
     if(g_qos_info.req_qos_info[0] != '\0') {
         return g_qos_info.req_qos_info;
     } else {
@@ -142,6 +150,8 @@ bool FastRejectQoSMgr::IsReject(const char * business_name,
     }
     if(user_priority <= curr_user_priority_) {
         return false;
+    } else {
+        return true;
     }
     return false;
 }
@@ -171,7 +181,7 @@ bool FastRejectQoSMgr::IsReject(const char * http_header_qos_value) {
 }
 
 void FastRejectQoSMgr::LogStat() {
-    log(LOG_DEBUG, "FastRejectQoSMgr::%s curr_business_priority_ %d curr_user_priority_ %d", __func__,
+    log(LOG_ERR, "FastRejectQoSMgr::%s curr_business_priority_ %d curr_user_priority_ %d", __func__,
             curr_business_priority_, curr_user_priority_);
 }
 

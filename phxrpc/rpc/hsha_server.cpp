@@ -259,24 +259,60 @@ void HshaServerStat :: CalFunc() {
             rpc_time_costs_count_ = 0;
         }
 
+        /*
+         *inqueue_wait_time_costs_per_period_ = 0;
+         *if (inqueue_wait_time_costs_count_ >= QUEUE_WAIT_TIME_COST_CAL_RATE) {
+         *    inqueue_avg_wait_time_costs_per_second_ = 
+         *        static_cast<long>(inqueue_wait_time_costs_) / inqueue_wait_time_costs_count_;
+         *    inqueue_wait_time_costs_per_period_ = static_cast<long>(inqueue_wait_time_costs_);
+         *    inqueue_wait_time_costs_ = 0;
+         *    inqueue_wait_time_costs_count_ = 0;
+         *    inqueue_avg_wait_time_costs_per_second_cal_seq_++;
+         *}
+         */
+
         inqueue_wait_time_costs_per_period_ = 0;
-        if (inqueue_wait_time_costs_count_ >= QUEUE_WAIT_TIME_COST_CAL_RATE) {
+        if (inqueue_wait_time_costs_count_ > 0) {
             inqueue_avg_wait_time_costs_per_second_ = 
                 static_cast<long>(inqueue_wait_time_costs_) / inqueue_wait_time_costs_count_;
             inqueue_wait_time_costs_per_period_ = static_cast<long>(inqueue_wait_time_costs_);
             inqueue_wait_time_costs_ = 0;
             inqueue_wait_time_costs_count_ = 0;
             inqueue_avg_wait_time_costs_per_second_cal_seq_++;
+        } else {
+            inqueue_wait_time_costs_per_period_ = 0;
+            inqueue_wait_time_costs_ = 0;
+            inqueue_wait_time_costs_count_ = 0;
+            inqueue_avg_wait_time_costs_per_second_ =  0;
+            inqueue_avg_wait_time_costs_per_second_cal_seq_++;
         }
+    
+
+        /*
+         *outqueue_wait_time_costs_per_period_ = 0;
+         *if (outqueue_wait_time_costs_count_ >= QUEUE_WAIT_TIME_COST_CAL_RATE) {
+         *    outqueue_avg_wait_time_costs_per_second_ = 
+         *        static_cast<long>(outqueue_wait_time_costs_) / outqueue_wait_time_costs_count_;
+         *    outqueue_wait_time_costs_per_period_ = static_cast<long>(outqueue_wait_time_costs_);
+         *    outqueue_wait_time_costs_ = 0;
+         *    outqueue_wait_time_costs_count_ = 0;
+         *}
+         */
 
         outqueue_wait_time_costs_per_period_ = 0;
-        if (outqueue_wait_time_costs_count_ >= QUEUE_WAIT_TIME_COST_CAL_RATE) {
+        if (outqueue_wait_time_costs_count_ > 0) {
             outqueue_avg_wait_time_costs_per_second_ = 
                 static_cast<long>(outqueue_wait_time_costs_) / outqueue_wait_time_costs_count_;
             outqueue_wait_time_costs_per_period_ = static_cast<long>(outqueue_wait_time_costs_);
             outqueue_wait_time_costs_ = 0;
             outqueue_wait_time_costs_count_ = 0;
+        } else {
+            outqueue_avg_wait_time_costs_per_second_ = 0; 
+            outqueue_wait_time_costs_per_period_ = 0;
+            outqueue_wait_time_costs_ = 0;
+            outqueue_wait_time_costs_count_ = 0;
         }
+
 
         enqueue_fast_reject_qps_ = static_cast<int>(enqueue_fast_rejects_);
         enqueue_fast_rejects_ = 0;
@@ -289,7 +325,7 @@ void HshaServerStat :: CalFunc() {
 
         MonitorReport();
 
-        phxrpc::log(LOG_DEBUG, "[SERVER_STAT] hold_fds %d accept_qps %d accept_reject_qps %d queue_full_reject_qps %d"
+        phxrpc::log(LOG_ERR, "[SERVER_STAT] hold_fds %d accept_qps %d accept_reject_qps %d queue_full_reject_qps %d"
                 " read_request_qps %d write_response_qps %d"
                 " inqueue_push_qps %d rpc_time_cost_avg %d"
                 " inqueue_wait_time_avg %d outqueue_wait_time_qvg %d"
@@ -350,7 +386,7 @@ void HshaServerQos :: SetQoSInfo(HttpResponse * response) {
             snprintf(qos_info, sizeof(qos_info), "%d_%d",
                     business_priority, user_priority);
 
-            phxrpc::log(LOG_DEBUG, "[SERVER_QOS] %s resp qos_info %s", __func__, qos_info);
+            //phxrpc::log(LOG_DEBUG, "[SERVER_QOS] %s resp qos_info %s", __func__, qos_info);
 
             response->AddHeader(HttpMessage::HEADER_X_PHXRPC_QOS_RESP,
                     qos_info);
@@ -370,7 +406,7 @@ void HshaServerQos :: CalFunc() {
             int avg_queue_wait_time = (hsha_server_stat_->inqueue_avg_wait_time_costs_per_second_
                     + hsha_server_stat_->outqueue_avg_wait_time_costs_per_second_) / 2;
 
-            //phxrpc::log(LOG_DEBUG, "[SERVER_QOS] avg_queue_wait_time %d", avg_queue_wait_time);
+            //phxrpc::log(LOG_ERR, "[SERVER_QOS] avg_queue_wait_time %d", avg_queue_wait_time);
 
             int rate = config_->GetFastRejectAdjustRate();
             if (avg_queue_wait_time > config_->GetFastRejectThresholdMS()) {
@@ -443,8 +479,12 @@ void Worker :: Func() {
             pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
             pool_->hsha_server_stat_->worker_time_costs_ += time_cost.Cost();
         } else {
+            //phxrpc::log(LOG_ERR, "------%s queue_wait_time_ms %d > MAX_QUEUE_WAIT_TIME_COST %d", __func__,
+                    //queue_wait_time_ms, MAX_QUEUE_WAIT_TIME_COST);
+            //response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, -1);
             pool_->hsha_server_stat_->worker_drop_requests_++;
         }
+
         pool_->data_flow_->PushResponse(args, response);
         pool_->hsha_server_stat_->outqueue_push_responses_++;
 
@@ -551,7 +591,7 @@ void HshaServerIO :: IOFunc(int accepted_fd) {
             //fast reject don't cal rpc_time_cost;
             delete request;
             hsha_server_stat_->enqueue_fast_rejects_++;
-            phxrpc::log(LOG_ERR, "%s fast reject, can't enqueue, fd %d", __func__, accepted_fd);
+            //phxrpc::log(LOG_ERR, "%s fast reject, can't enqueue, fd %d", __func__, accepted_fd);
 
             response = new HttpResponse;
             response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, -206);
@@ -576,7 +616,7 @@ void HshaServerIO :: IOFunc(int accepted_fd) {
                 UThreadLazyDestory(*socket);
 
                 //phxrpc::log(LOG_ERR, "%s timeout, fd %d sockettimeoutms %d", 
-                //__func__, accepted_fd, config_->GetSocketTimeoutMS());
+                        //__func__, accepted_fd, config_->GetSocketTimeoutMS());
                 break;
             }
             response = (HttpResponse *)UThreadGetArgs(*socket);
@@ -614,6 +654,7 @@ UThreadSocket_t * HshaServerIO :: ActiveSocketFunc() {
         int queue_wait_time_ms = data_flow_->PluckResponse(args, response);
         if (response == nullptr) {
             //break out
+            phxrpc::log(LOG_ERR, "%s response == nullptr", __func__);
             return nullptr;
         }
         hsha_server_stat_->outqueue_wait_time_costs_ += queue_wait_time_ms;
@@ -622,7 +663,7 @@ UThreadSocket_t * HshaServerIO :: ActiveSocketFunc() {
         UThreadSocket_t * socket = (UThreadSocket_t *)args;
         if (socket != nullptr && IsUThreadDestory(*socket)) {
             //socket aready timeout.
-            //phxrpc::log(LOG_ERR, "%s socket aready timeout", __func__);
+            phxrpc::log(LOG_ERR, "%s socket aready timeout", __func__);
             UThreadClose(*socket);
             free(socket);
             delete response;
