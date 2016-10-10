@@ -201,10 +201,6 @@ void ClientCodeRender::GenerateStubFunc(SyntaxTree * stree, SyntaxFunc * func, F
     fprintf(write, "    caller.SetURI( \"/%s/%s\", %d );\n", stree->GetPackageName(), func->GetName(), 
                                                              func->GetCmdID());
     fprintf(write, "    caller.SetKeepAlive( keep_alive_ );\n");
-
-    fprintf(write, "    if(client_config_) {\n");
-    fprintf(write, "        caller.SetIsEnableCliFr( client_config_->IsEnableClientFastReject() );\n");
-    fprintf(write, "    }\n");
     fprintf(write, "    return caller.Call( req, resp );\n");
 
     fprintf(write, "}\n");

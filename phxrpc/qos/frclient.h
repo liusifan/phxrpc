@@ -34,6 +34,8 @@ public:
 
     int Init();
 
+    bool IsSvrBlocked(const char * ip, const uint32_t port,
+            const char * req_qos_info);
     bool IsSvrBlocked(const uint32_t ip, const uint32_t port,
             const char * req_qos_info);
 private:

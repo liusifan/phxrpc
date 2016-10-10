@@ -53,6 +53,8 @@ class ClientMonitor {
     virtual void GetEndpointFail();
 
     virtual void ClientCall( int cmd, const char * method_name );
+
+    virtual void ClientFastReject();
 };
 
 typedef std::shared_ptr<ClientMonitor> ClientMonitorPtr;

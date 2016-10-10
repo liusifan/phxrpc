@@ -114,7 +114,7 @@ const char * PHXRPC_CLIENT_FUNC_TEMPLATE =
                 stub.SetConfig( config_ );
                 return stub.$Func$( req, resp );
             },
-            [=]( phxrpc::ClientConfig config ) -> const phxrpc::Endpoint_t * {
+            [=]( phxrpc::ClientConfig & config ) -> const phxrpc::Endpoint_t * {
                 return config.GetRandom();
             }
     );

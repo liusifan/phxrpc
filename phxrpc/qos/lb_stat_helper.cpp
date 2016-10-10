@@ -254,7 +254,7 @@ int CliFRMgr::AddReportFRInfoData(lb_key_mng * key_mng )
     {
         key_item = key_mng->get_key(i);
 
-        phxrpc::log(LOG_DEBUG, "%s ip %u port %u business_priority %d "
+        phxrpc::log(LOG_INFO, "%s ip %u port %u business_priority %d "
                 "user_priority %d ",
                 __func__, 
                 key_item->key.remote_ip, key_item->key.remote_port,

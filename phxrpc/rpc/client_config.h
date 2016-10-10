@@ -25,6 +25,7 @@ See the AUTHORS file for names of contributors.
 #include <vector>
 #include <memory>
 #include <sys/types.h>
+#include <string.h>
 
 #include "phxrpc/file.h"
 #include "client_monitor.h"

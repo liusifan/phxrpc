@@ -63,6 +63,9 @@ void ClientMonitor :: GetEndpointFail() {
 
 void ClientMonitor :: ClientCall( int cmdid, const char * method_name ) {
 }
+
+void ClientMonitor :: ClientFastReject() {
+}
 //ClientMonitor end
 
 }

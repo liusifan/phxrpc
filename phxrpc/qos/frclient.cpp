@@ -19,6 +19,9 @@ permissions and limitations under the License.
 See the AUTHORS file for names of contributors.
 */
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include "phxrpc/file.h"
 #include "qosmgr.h"
 #include "frclient.h"
@@ -51,6 +54,20 @@ int FRClient::Init() {
     return 0;
 }
 
+bool FRClient::IsSvrBlocked(const char * ip, const uint32_t port,
+        const char * req_qos_info) {
+
+    struct in_addr addr;
+    if(0 < inet_pton(AF_INET, ip,&addr)) {
+        return IsSvrBlocked(addr.s_addr, port, req_qos_info);
+    } else {
+        log(LOG_ERR, "FRClient::%s ip %s port %u inet_pton failed errno %d ",
+                __func__, ip, port, errno);
+
+        return false;
+    }
+}
+
 bool FRClient::IsSvrBlocked(const uint32_t ip, const uint32_t port,
         const char * req_qos_info) {
     if(!is_init_ && (0 != Init())) {
@@ -77,11 +94,6 @@ bool FRClient::IsSvrBlocked(const uint32_t ip, const uint32_t port,
             req_qos_info, is_blocked);
     return is_blocked;
 }
-
-
-
-
-
 
 }
 

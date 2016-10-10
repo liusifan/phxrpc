@@ -23,6 +23,7 @@ See the AUTHORS file for names of contributors.
 
 #include <set>
 
+#include "phxrpc/qos.h"
 #include "client_config.h"
 
 namespace phxrpc {
@@ -50,6 +51,16 @@ int ClientCall( ClientConfig & config, ClientMonitor & monitor, CallStub call_st
 
         if( nullptr == ep ) return -2;
         in_use_set.insert( ep );
+
+        if(config.IsEnableClientFastReject()) {
+            //cli fr
+            if(FRClient::GetDefault()->IsSvrBlocked(ep->ip, ep->port, FastRejectQoSMgr::GetReqQoSInfo())) {
+                phxrpc::log(LOG_DEBUG, "%s req hit cli rfr %s ", __func__, 
+                        FastRejectQoSMgr::GetReqQoSInfo()?FastRejectQoSMgr::GetReqQoSInfo():"");
+                monitor.ClientFastReject();
+                continue;
+            }
+        }
 
         phxrpc::BlockTcpStream socket;
 
