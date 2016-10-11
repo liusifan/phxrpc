@@ -81,6 +81,7 @@ FastRejectQoSMgr::FastRejectQoSMgr() {
     user_priority_lower_cnt_ = 0;
     
     is_init_ = false;
+    is_no_user_priority_ = false;
 }
 
 FastRejectQoSMgr::~FastRejectQoSMgr() {
@@ -90,7 +91,8 @@ FastRejectQoSMgr::~FastRejectQoSMgr() {
 int FastRejectQoSMgr::Init(const char * business_priority_conf,
         int user_priority_cnt,
         int user_priority_elevate_percent,
-        int user_priority_lower_percent) {
+        int user_priority_lower_percent,
+        bool is_no_user_priority) {
 
     user_priority_cnt_ = user_priority_cnt;
     if(user_priority_cnt < 0) {
@@ -111,11 +113,14 @@ int FastRejectQoSMgr::Init(const char * business_priority_conf,
     user_priority_elevate_cnt_ = (int)((double)user_priority_cnt * ((double)user_priority_elevate_percent / 100.0));
     user_priority_lower_cnt_ = (int)((double)user_priority_cnt * ((double)user_priority_lower_percent / 100.0));
 
+    is_no_user_priority_ = is_no_user_priority;
+
 
     log(LOG_DEBUG, "FastRejectQoSMgr::%s business_priority_cnt_ %d user_priority_cnt_ %d "
-            "user_priority_elevate_cnt_ %d user_priority_lower_cnt_ %d", __func__,
+            "user_priority_elevate_cnt_ %d user_priority_lower_cnt_ %d is_no_user_priority_ %d", __func__,
             business_priority_cnt_, user_priority_cnt_,
-            user_priority_elevate_cnt_, user_priority_lower_cnt_);
+            user_priority_elevate_cnt_, user_priority_lower_cnt_,
+            is_no_user_priority_);
 
     is_init_ = true;
     return 0;
@@ -134,8 +139,15 @@ bool FastRejectQoSMgr::IsReject(const char * business_name,
     }
 
     int business_priority = business_priority_config_.GetPriority(business_name);
-    int user_priority = GetUserPriority(user_name);
+    if(is_no_user_priority_) {
+        if(business_priority <= curr_business_priority_) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 
+    int user_priority = GetUserPriority(user_name);
     log(LOG_DEBUG, "FastRejectQoSMgr::%s business_name %s user_name %s "
             "business_priority %d user_priority %d curr_business_priority_ %d curr_user_priority_ %d",
             __func__, business_name, user_name,
@@ -148,14 +160,11 @@ bool FastRejectQoSMgr::IsReject(const char * business_name,
     if(business_priority > curr_business_priority_) {
         return true;
     }
-    if(user_priority <= curr_user_priority_) {
-        return false;
-    } else {
+    if(user_priority > curr_user_priority_) {
         return true;
-    }
+    } 
     return false;
 }
-
 
 bool FastRejectQoSMgr::IsReject(const char * http_header_qos_value) {
 

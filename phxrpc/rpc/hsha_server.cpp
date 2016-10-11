@@ -350,11 +350,12 @@ HshaServerQos :: HshaServerQos(const HshaServerConfig * config, HshaServerStat *
     inqueue_avg_wait_time_costs_per_second_cal_last_seq_ = 0;
     fast_reject_type_ = config->GetFastRejectType();
 
-    if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
+    if(fast_reject_type_ != HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
         qos_mgr_.Init(config->GetQoSBusinessPriorityConfFile(), 
                 config->GetUserPriorityCnt(),
                 config->GetUserPriorityElevatePercent(),
-                config->GetUserPriorityLowerPercent());
+                config->GetUserPriorityLowerPercent(),
+                fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS_NO_USER_PRIORITY?true:false);
     }
 }
 
@@ -369,16 +370,16 @@ bool HshaServerQos :: CanAccept() {
 }
 
 bool HshaServerQos :: CanEnqueue(const char * http_header_qos_value) {
-    if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
-        return !qos_mgr_.IsReject(http_header_qos_value);
-    } else {
+    if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
         static std::default_random_engine e_rand((int)time(nullptr));
         return ((int)(e_rand() % 100)) >= enqueue_reject_rate_;
+    } else {
+        return !qos_mgr_.IsReject(http_header_qos_value);
     }
 }
 
 void HshaServerQos :: SetQoSInfo(HttpResponse * response) {
-    if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
+    if(fast_reject_type_ != HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
         int business_priority = 0;
         int user_priority = 0;
         if(0 == qos_mgr_.GetQoSInfo(&business_priority, &user_priority)) {
@@ -410,20 +411,20 @@ void HshaServerQos :: CalFunc() {
 
             int rate = config_->GetFastRejectAdjustRate();
             if (avg_queue_wait_time > config_->GetFastRejectThresholdMS()) {
-                if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
-                    qos_mgr_.ElevatePriority();
-                } else {
+                if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
                     if (enqueue_reject_rate_ != 99) {
                         enqueue_reject_rate_ = enqueue_reject_rate_ + rate > 99 ? 99 : enqueue_reject_rate_ + rate;
                     }
+                } else {
+                    qos_mgr_.ElevatePriority();
                 }
             } else {
-                if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
-                    qos_mgr_.LowerPriority();
-                } else {
+                if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
                     if (enqueue_reject_rate_ != 0) {
                         enqueue_reject_rate_ = enqueue_reject_rate_ - rate < 0 ? 0 : enqueue_reject_rate_ - rate;
                     }
+                } else {
+                    qos_mgr_.LowerPriority();
                 }
             }
 

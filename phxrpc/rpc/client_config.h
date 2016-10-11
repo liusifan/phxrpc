@@ -77,6 +77,8 @@ class ClientConfig {
     bool IsEnableClientFastReject();
     int GetOssId();
 
+    bool IsEnableClientThrotting();
+
  protected:
     virtual bool Parse(Config & config);
 
@@ -88,6 +90,7 @@ class ClientConfig {
     char package_name_[64];
 
     int is_enable_cli_fr_;
+    int is_enable_cli_throtting_;
 
     ClientMonitorPtr client_monitor_;
     int oss_id_;

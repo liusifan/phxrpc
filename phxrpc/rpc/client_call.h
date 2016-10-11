@@ -25,6 +25,7 @@ See the AUTHORS file for names of contributors.
 
 #include "phxrpc/qos.h"
 #include "client_config.h"
+#include "client_throtting_mgr.h"
 
 namespace phxrpc {
 
@@ -60,20 +61,38 @@ int ClientCall( ClientConfig & config, ClientMonitor & monitor, CallStub call_st
                 monitor.ClientFastReject();
                 continue;
             }
+        } else if(config.IsEnableClientThrotting()) {
+
+            if(ClientThrottingMgr::GetDefault()->IsReject(ep->ip, ep->port)) {
+                phxrpc::log(LOG_INFO, "%s req reject by client throtting ", __func__); 
+                monitor.ClientFastReject();
+                continue;
+            }
         }
 
         phxrpc::BlockTcpStream socket;
 
+
         bool open_ret = phxrpc::PhxrpcTcpUtils::Open(&socket, ep->ip, ep->port,
                     config.GetConnectTimeoutMS(), NULL, 0, monitor );
 
-        if ( ! open_ret ) continue;
+        if ( ! open_ret )  {
+            if(config.IsEnableClientThrotting()) {
+                ClientThrottingMgr::GetDefault()->Report(ep->ip, ep->port, -1);
+            }
+            continue;
+        }
 
         socket.SetTimeout( config.GetSocketTimeoutMS() );
 
         ret = call_stub( socket );
 
-        if( -206 != ret ) break;
+        if(config.IsEnableClientThrotting()) {
+            ClientThrottingMgr::GetDefault()->Report(ep->ip, ep->port, ret);
+        }
+        if( -206 != ret ) {
+            break;
+        }
     }
 
     return ret;

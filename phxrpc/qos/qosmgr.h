@@ -38,7 +38,8 @@ public:
     int Init(const char * business_priority_conf,
             int user_priority_cnt,
             int user_priority_elevate_percent,
-            int user_priority_lower_percent);
+            int user_priority_lower_percent,
+            bool is_no_user_priority);
 
     bool IsReject(const char * business_name,
             const char * user_name);
@@ -78,6 +79,7 @@ private:
     int user_priority_elevate_cnt_;
     int user_priority_lower_cnt_;
     bool is_init_;
+    bool is_no_user_priority_;
 };
 
 

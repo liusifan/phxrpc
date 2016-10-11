@@ -223,7 +223,8 @@ int CliFRMgr::Init(const char * business_priority_conf,
     if (qos_mgr_->Init(business_priority_conf,
                 user_priority_cnt,
                 user_priority_elevate_percent,
-                user_priority_lower_percent) == 0)
+                user_priority_lower_percent,
+                false) == 0)
     {
         is_init_ = true;
         return 0;

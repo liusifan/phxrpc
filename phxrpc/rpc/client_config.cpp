@@ -33,6 +33,7 @@ ClientConfig::ClientConfig() {
     connect_timeout_ms_ = 200;
     socket_timeout_ms_ = 5000;
     is_enable_cli_fr_ = 0;
+    is_enable_cli_throtting_ = 0;
     memset(package_name_, 0, sizeof(package_name_));
     oss_id_ = 0;
 }
@@ -82,6 +83,7 @@ bool ClientConfig::Parse(Config & config) {
     config.ReadItem("ClientTimeout", "SocketTimeoutMS", &socket_timeout_ms_);
 
     config.ReadItem("Server", "EnableClientFastReject", &is_enable_cli_fr_);
+    config.ReadItem("Server", "EnableClientThrotting", &is_enable_cli_throtting_);
 
     if (endpoints_.size() == 0) {
         log(LOG_ERR, "Config::%s no endpoints", __func__);
@@ -159,6 +161,10 @@ const char * ClientConfig :: GetPackageName() const {
 
 int ClientConfig :: GetOssId() {
     return oss_id_;
+}
+
+bool ClientConfig::IsEnableClientThrotting() {
+    return is_enable_cli_throtting_ == 0?false:true;
 }
 
 }

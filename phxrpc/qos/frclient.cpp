@@ -58,7 +58,7 @@ bool FRClient::IsSvrBlocked(const char * ip, const uint32_t port,
         const char * req_qos_info) {
 
     struct in_addr addr;
-    if(0 < inet_pton(AF_INET, ip,&addr)) {
+    if(0 < inet_pton(AF_INET, ip, &addr)) {
         return IsSvrBlocked(addr.s_addr, port, req_qos_info);
     } else {
         log(LOG_ERR, "FRClient::%s ip %s port %u inet_pton failed errno %d ",
