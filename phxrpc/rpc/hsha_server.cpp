@@ -489,6 +489,10 @@ void Worker :: Do(void * args, HttpRequest * request,
                 //queue_wait_time_ms, MAX_QUEUE_WAIT_TIME_COST);
         response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, phxrpc::SocketStreamError_FastReject);
         pool_->hsha_server_stat_->worker_drop_requests_++;
+
+        if(is_drop) {
+            pool_->hsha_server_stat_->enqueue_fast_rejects_++;
+        }
     } else {
         HshaServerStat::TimeCost time_cost;
         pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
