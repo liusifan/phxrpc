@@ -75,7 +75,7 @@ public:
     enum {
         FASTREJECT_TYPE_RANDOM = 0,
         FASTREJECT_TYPE_QOS = 1,
-        FASTREJECT_TYPE_QOS_NO_USER_PRIORITY = 2,
+        FASTREJECT_TYPE_CODEL = 2,
     };
 
 

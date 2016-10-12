@@ -36,6 +36,7 @@ ClientConfig::ClientConfig() {
     is_enable_cli_throtting_ = 0;
     memset(package_name_, 0, sizeof(package_name_));
     oss_id_ = 0;
+    retry_cnt_ = 3;
 }
 
 ClientConfig::~ClientConfig() {
@@ -84,6 +85,7 @@ bool ClientConfig::Parse(Config & config) {
 
     config.ReadItem("Server", "EnableClientFastReject", &is_enable_cli_fr_);
     config.ReadItem("Server", "EnableClientThrotting", &is_enable_cli_throtting_);
+    config.ReadItem("Server", "RetryCnt", &retry_cnt_);
 
     if (endpoints_.size() == 0) {
         log(LOG_ERR, "Config::%s no endpoints", __func__);
@@ -165,6 +167,10 @@ int ClientConfig :: GetOssId() {
 
 bool ClientConfig::IsEnableClientThrotting() {
     return is_enable_cli_throtting_ == 0?false:true;
+}
+
+int ClientConfig :: GetRetryCnt() {
+    return retry_cnt_;
 }
 
 }

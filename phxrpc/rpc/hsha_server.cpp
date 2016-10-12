@@ -44,6 +44,14 @@ DataFlow :: DataFlow() {
 DataFlow :: ~DataFlow() {
 }
 
+void DataFlow :: SetUseCoDel() {
+    is_use_codel_ = true;
+}
+
+bool DataFlow :: IsUseCoDel() {
+    return is_use_codel_;
+}
+
 void DataFlow :: PushRequest(void * args, HttpRequest * request) {
     in_queue_.push(make_pair(QueueExtData(args), request));
 }
@@ -59,6 +67,18 @@ int DataFlow :: PluckRequest(void *& args, HttpRequest *& request) {
 
     auto now_time = Timer::GetSteadyClockMS();
     return now_time > rp.first.enqueue_time_ms ? now_time - rp.first.enqueue_time_ms : 0;
+}
+
+void DataFlow :: PushRequestCoDel(void * args, HttpRequest * request) {
+    CoDelInQueueItem * item = new CoDelInQueueItem;
+    item->args = args;
+    item->request = request;
+    CoDelQueueItem queue_item((void*)item);
+    codel_in_queue_.push(queue_item);
+}
+
+bool DataFlow :: PluckRequesCoDel(std::vector<CoDelQueueItem> & item_vec) {
+    return codel_in_queue_.pluck(item_vec);
 }
 
 void DataFlow :: PushResponse(void * args, HttpResponse * response) {
@@ -350,12 +370,12 @@ HshaServerQos :: HshaServerQos(const HshaServerConfig * config, HshaServerStat *
     inqueue_avg_wait_time_costs_per_second_cal_last_seq_ = 0;
     fast_reject_type_ = config->GetFastRejectType();
 
-    if(fast_reject_type_ != HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
+    if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
         qos_mgr_.Init(config->GetQoSBusinessPriorityConfFile(), 
                 config->GetUserPriorityCnt(),
                 config->GetUserPriorityElevatePercent(),
                 config->GetUserPriorityLowerPercent(),
-                fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS_NO_USER_PRIORITY?true:false);
+                false);
     }
 }
 
@@ -372,14 +392,16 @@ bool HshaServerQos :: CanAccept() {
 bool HshaServerQos :: CanEnqueue(const char * http_header_qos_value) {
     if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
         static std::default_random_engine e_rand((int)time(nullptr));
-        return ((int)(e_rand() % 100)) >= enqueue_reject_rate_;
-    } else {
+        return ((int)(e_rand() % 100)) >= enqueue_reject_rate_; 
+    } else if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
         return !qos_mgr_.IsReject(http_header_qos_value);
+    } else {
+        return true;
     }
 }
 
 void HshaServerQos :: SetQoSInfo(HttpResponse * response) {
-    if(fast_reject_type_ != HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
+    if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
         int business_priority = 0;
         int user_priority = 0;
         if(0 == qos_mgr_.GetQoSInfo(&business_priority, &user_priority)) {
@@ -415,15 +437,15 @@ void HshaServerQos :: CalFunc() {
                     if (enqueue_reject_rate_ != 99) {
                         enqueue_reject_rate_ = enqueue_reject_rate_ + rate > 99 ? 99 : enqueue_reject_rate_ + rate;
                     }
-                } else {
+                } else if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
                     qos_mgr_.ElevatePriority();
-                }
+                } 
             } else {
                 if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_RANDOM) {
                     if (enqueue_reject_rate_ != 0) {
                         enqueue_reject_rate_ = enqueue_reject_rate_ - rate < 0 ? 0 : enqueue_reject_rate_ - rate;
                     }
-                } else {
+                } else if(fast_reject_type_ == HshaServerConfig::FASTREJECT_TYPE_QOS) {
                     qos_mgr_.LowerPriority();
                 }
             }
@@ -449,6 +471,37 @@ Worker :: ~Worker() {
     thread_.join();
 }
 
+void Worker :: Do(void * args, HttpRequest * request,
+        int queue_wait_time_ms, bool is_drop) {
+    pool_->hsha_server_stat_->inqueue_pop_requests_++;
+    pool_->hsha_server_stat_->inqueue_wait_time_costs_ += queue_wait_time_ms;
+    pool_->hsha_server_stat_->inqueue_wait_time_costs_count_++;
+
+    const char * http_header_qos_value = request->GetHeaderValue(HttpMessage::HEADER_X_PHXRPC_QOS_REQ);
+    FastRejectQoSMgr::SetReqQoSInfo(http_header_qos_value);
+
+    phxrpc::log(LOG_DEBUG, "%s req qos info %s is_drop %d", __func__, http_header_qos_value, is_drop);
+
+    HttpResponse * response = new HttpResponse;
+    if (is_drop || queue_wait_time_ms >= MAX_QUEUE_WAIT_TIME_COST) {
+        //phxrpc::log(LOG_ERR, "------%s is_drop %d queue_wait_time_ms %d > MAX_QUEUE_WAIT_TIME_COST %d", __func__,
+                //is_drop,
+                //queue_wait_time_ms, MAX_QUEUE_WAIT_TIME_COST);
+        response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, phxrpc::SocketStreamError_FastReject);
+        pool_->hsha_server_stat_->worker_drop_requests_++;
+    } else {
+        HshaServerStat::TimeCost time_cost;
+        pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
+        pool_->hsha_server_stat_->worker_time_costs_ += time_cost.Cost();
+    }
+
+    pool_->data_flow_->PushResponse(args, response);
+    pool_->hsha_server_stat_->outqueue_push_responses_++;
+
+    pool_->scheduler_->NotifyEpoll();
+    delete request;
+}
+
 void Worker :: Func() {
 
     lb_stat_attach(worker_idx_);
@@ -456,42 +509,37 @@ void Worker :: Func() {
     while (!shut_down_) {
         pool_->hsha_server_stat_->worker_idles_++;
 
-        void * args = nullptr;
-        HttpRequest * request = nullptr;
-        int queue_wait_time_ms = pool_->data_flow_->PluckRequest(args, request);
-        if (request == nullptr) {
-            //break out
-            continue;
-        }
-        pool_->hsha_server_stat_->worker_idles_--;
+        if(pool_->data_flow_->IsUseCoDel()) {
 
-        pool_->hsha_server_stat_->inqueue_pop_requests_++;
-        pool_->hsha_server_stat_->inqueue_wait_time_costs_ += queue_wait_time_ms;
-        pool_->hsha_server_stat_->inqueue_wait_time_costs_count_++;
+            std::vector<CoDelQueueItem> item_vec;
+            bool is_ok = pool_->data_flow_->PluckRequesCoDel(item_vec);
+            if(!is_ok) {
+                pool_->hsha_server_stat_->worker_idles_--;
+                continue;
+            }
 
-        const char * http_header_qos_value = request->GetHeaderValue(HttpMessage::HEADER_X_PHXRPC_QOS_REQ);
-        FastRejectQoSMgr::SetReqQoSInfo(http_header_qos_value);
+            pool_->hsha_server_stat_->worker_idles_--;
 
-        phxrpc::log(LOG_DEBUG, "%s req qos info %s", __func__, http_header_qos_value);
-
-        HttpResponse * response = new HttpResponse;
-        if (queue_wait_time_ms < MAX_QUEUE_WAIT_TIME_COST) {
-            HshaServerStat::TimeCost time_cost;
-            pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
-            pool_->hsha_server_stat_->worker_time_costs_ += time_cost.Cost();
+            for(auto & item : item_vec) {
+                auto now_time = Timer::GetSteadyClockMS();
+                int queue_wait_time_ms = now_time > item.enqueue_time_ms ? now_time - item.enqueue_time_ms : 0;
+                CoDelInQueueItem * inqueue_item = (CoDelInQueueItem*)item.data;
+                Do(inqueue_item->args, inqueue_item->request,
+                       queue_wait_time_ms,  item.is_drop);
+                delete inqueue_item;
+            }
         } else {
-            //phxrpc::log(LOG_ERR, "------%s queue_wait_time_ms %d > MAX_QUEUE_WAIT_TIME_COST %d", __func__,
-                    //queue_wait_time_ms, MAX_QUEUE_WAIT_TIME_COST);
-            //response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, -1);
-            pool_->hsha_server_stat_->worker_drop_requests_++;
+            void * args = nullptr;
+            HttpRequest * request = nullptr;
+            int queue_wait_time_ms = pool_->data_flow_->PluckRequest(args, request);
+            if (request == nullptr) {
+                //break out
+                pool_->hsha_server_stat_->worker_idles_--;
+                continue;
+            }
+            pool_->hsha_server_stat_->worker_idles_--;
+            Do(args, request, queue_wait_time_ms, false);
         }
-
-        pool_->data_flow_->PushResponse(args, response);
-        pool_->hsha_server_stat_->outqueue_push_responses_++;
-
-        pool_->scheduler_->NotifyEpoll();
-
-        delete request;
     }
 }
 
@@ -528,7 +576,11 @@ HshaServerIO :: HshaServerIO(UThreadEpollScheduler * scheduler, const HshaServer
     : scheduler_(scheduler), config_(config), 
     data_flow_(data_flow), hsha_server_stat_(hsha_server_stat), 
     hsha_server_qos_(hsha_server_qos) {
-}
+
+        if(config->GetFastRejectType() == HshaServerConfig::FASTREJECT_TYPE_CODEL) {
+            data_flow->SetUseCoDel();
+        }
+    }
 
 HshaServerIO :: ~HshaServerIO() {
 }
@@ -595,7 +647,7 @@ void HshaServerIO :: IOFunc(int accepted_fd) {
             //phxrpc::log(LOG_ERR, "%s fast reject, can't enqueue, fd %d", __func__, accepted_fd);
 
             response = new HttpResponse;
-            response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, -206);
+            response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, phxrpc::SocketStreamError_FastReject);
             response->SetStatusCode(561);
             response->SetReasonPhrase( "FastReject" );
 
@@ -603,7 +655,13 @@ void HshaServerIO :: IOFunc(int accepted_fd) {
             //if have enqueue, request will be deleted after pop.
 
             hsha_server_stat_->inqueue_push_requests_++;
-            data_flow_->PushRequest((void *)socket, request);
+
+            if(config_->GetFastRejectType() == HshaServerConfig::FASTREJECT_TYPE_CODEL) {
+                data_flow_->PushRequestCoDel((void *)socket, request);
+            } else {
+                data_flow_->PushRequest((void *)socket, request);
+            }
+
             UThreadSetArgs(*socket, nullptr);
 
             UThreadWait(*socket, config_->GetSocketTimeoutMS());

@@ -31,6 +31,7 @@ See the AUTHORS file for names of contributors.
 #include <vector>
 #include "server_config.h"
 #include "thread_queue.h"
+#include "codel_thread_queue.h"
 
 #include "phxrpc/network.h"
 #include "phxrpc/http.h"
@@ -42,6 +43,11 @@ namespace phxrpc {
 
 class WorkerPool;
 
+typedef struct _CodelInQueueItem {
+    void * args;
+    HttpRequest * request;
+} CoDelInQueueItem;
+
 class DataFlow {
 public:
     DataFlow();
@@ -49,6 +55,10 @@ public:
 
     void PushRequest(void * args, HttpRequest * request);
     int PluckRequest(void *& args, HttpRequest *& request);
+
+    void PushRequestCoDel(void * args, HttpRequest * request);
+    bool PluckRequesCoDel(std::vector<CoDelQueueItem> & item_vec);
+
     void PushResponse(void * args, HttpResponse * response);
     int PluckResponse(void *& args, HttpResponse *& response);
     bool CanPushRequest(const int max_queue_length);
@@ -56,6 +66,9 @@ public:
 
     void BreakOut();
 
+    void SetUseCoDel();
+    bool IsUseCoDel();
+    
 private:
     struct QueueExtData {
         QueueExtData() {
@@ -71,6 +84,9 @@ private:
     };
     ThdQueue<std::pair<QueueExtData, HttpRequest *> > in_queue_;
     ThdQueue<std::pair<QueueExtData, HttpResponse *> > out_queue_;
+
+    CoDelThdQueue codel_in_queue_;
+    bool is_use_codel_;
 };
 
 /////////////////////////////////
@@ -212,6 +228,8 @@ public:
     void Func(); 
     void Shutdown();
 
+    void Do(void * args, HttpRequest * request,
+            int queue_wait_time_ms, bool is_drop);
 private:
     int worker_idx_;
     WorkerPool * pool_;

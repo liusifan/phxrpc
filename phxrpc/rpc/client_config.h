@@ -79,6 +79,8 @@ class ClientConfig {
 
     bool IsEnableClientThrotting();
 
+    int GetRetryCnt();
+
  protected:
     virtual bool Parse(Config & config);
 
@@ -94,6 +96,7 @@ class ClientConfig {
 
     ClientMonitorPtr client_monitor_;
     int oss_id_;
+    int retry_cnt_;
 };
 
 }

@@ -27,7 +27,10 @@ namespace phxrpc {
 
 enum SocketStreamError {
     SocketStreamError_Refused = -1,
+    SocketStreamError_Connnect_Error = -201,
     SocketStreamError_Timeout = -202,
+    SocketStreamError_Send_Error = -203,
+    SocketStreamError_FastReject = -206,
     SocketStreamError_Normal_Closed = -303,
 };
 

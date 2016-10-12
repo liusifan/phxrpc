@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "phxrpc/file.h"
+#include "phxrpc/network.h"
 #include "client_throtting_mgr.h"
 
 namespace phxrpc {
@@ -82,7 +83,10 @@ void ClientThrottingMgr::Report(const unsigned int ip, const unsigned int port, 
     throtting_info->request_info[idx].request_cnt += 1;
     throtting_info->total_request_cnt += 1;
 
-    if(0 == ret_code) {
+    if(phxrpc::SocketStreamError_Connnect_Error != ret_code && 
+            phxrpc::SocketStreamError_Timeout != ret_code && 
+            phxrpc::SocketStreamError_FastReject != ret_code && 
+            phxrpc::SocketStreamError_Send_Error != ret_code) {
         throtting_info->request_info[idx].accept_cnt += 1;
         throtting_info->total_accept_cnt += 1;
     }

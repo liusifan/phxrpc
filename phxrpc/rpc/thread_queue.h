@@ -31,7 +31,8 @@ namespace phxrpc {
 template <class T>
 class ThdQueue {
 public:
-    ThdQueue() : break_out_(false), size_(0){ }
+    ThdQueue() : break_out_(false), size_(0) {
+    }
     ~ThdQueue() { break_out(); }
 
     size_t size() {

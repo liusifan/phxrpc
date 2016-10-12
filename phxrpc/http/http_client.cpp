@@ -65,6 +65,7 @@ int HttpClient::Post(BaseTcpStream & socket, const HttpRequest & req, HttpRespon
         if (socket_ret != SocketStreamError_Normal_Closed) {
             post_stat->send_error_ = true;
             phxrpc::log(LOG_ERR, "ERR: sendReqHeader fail");
+            socket_ret = SocketStreamError_Send_Error;
         }
         return socket_ret;
     }
@@ -80,11 +81,13 @@ int HttpClient::Post(BaseTcpStream & socket, const HttpRequest & req, HttpRespon
 
         if (socket_ret != 0 && socket_ret != SocketStreamError_Normal_Closed) {
             post_stat->recv_error_ = true;
+            socket_ret = SocketStreamError_Timeout;
         }
     } else {
         if (socket_ret != SocketStreamError_Normal_Closed) {
             post_stat->send_error_ = true;
             phxrpc::log(LOG_ERR, "ERR: sendReqBody fail");
+            socket_ret = SocketStreamError_Timeout;
         }
     }
 

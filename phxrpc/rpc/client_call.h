@@ -36,7 +36,8 @@ int ClientCall( ClientConfig & config, ClientMonitor & monitor, CallStub call_st
 
     std::set< const Endpoint_t * > in_use_set;
 
-    for( int i = 0; i < 3; i++ ) {
+    int retry_cnt = config.GetRetryCnt();
+    for( int i = 0; i < retry_cnt; i++ ) {
 
         const phxrpc::Endpoint_t * ep = nullptr;
 
@@ -66,6 +67,8 @@ int ClientCall( ClientConfig & config, ClientMonitor & monitor, CallStub call_st
             if(ClientThrottingMgr::GetDefault()->IsReject(ep->ip, ep->port)) {
                 phxrpc::log(LOG_INFO, "%s req reject by client throtting ", __func__); 
                 monitor.ClientFastReject();
+
+                ClientThrottingMgr::GetDefault()->Report(ep->ip, ep->port, phxrpc::SocketStreamError_FastReject);
                 continue;
             }
         }
@@ -78,7 +81,7 @@ int ClientCall( ClientConfig & config, ClientMonitor & monitor, CallStub call_st
 
         if ( ! open_ret )  {
             if(config.IsEnableClientThrotting()) {
-                ClientThrottingMgr::GetDefault()->Report(ep->ip, ep->port, -1);
+                ClientThrottingMgr::GetDefault()->Report(ep->ip, ep->port, phxrpc::SocketStreamError_Connnect_Error);
             }
             continue;
         }
@@ -90,7 +93,7 @@ int ClientCall( ClientConfig & config, ClientMonitor & monitor, CallStub call_st
         if(config.IsEnableClientThrotting()) {
             ClientThrottingMgr::GetDefault()->Report(ep->ip, ep->port, ret);
         }
-        if( -206 != ret ) {
+        if( phxrpc::SocketStreamError_FastReject != ret ) {
             break;
         }
     }
