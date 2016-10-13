@@ -483,21 +483,30 @@ void Worker :: Do(void * args, HttpRequest * request,
     phxrpc::log(LOG_DEBUG, "%s req qos info %s is_drop %d", __func__, http_header_qos_value, is_drop);
 
     HttpResponse * response = new HttpResponse;
-    if (is_drop || queue_wait_time_ms >= MAX_QUEUE_WAIT_TIME_COST) {
-        //phxrpc::log(LOG_ERR, "------%s is_drop %d queue_wait_time_ms %d > MAX_QUEUE_WAIT_TIME_COST %d", __func__,
-                //is_drop,
-                //queue_wait_time_ms, MAX_QUEUE_WAIT_TIME_COST);
-        response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, phxrpc::SocketStreamError_FastReject);
-        pool_->hsha_server_stat_->worker_drop_requests_++;
 
+    if(pool_->data_flow_->IsUseCoDel()) {
         if(is_drop) {
+            response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, phxrpc::SocketStreamError_FastReject);
             pool_->hsha_server_stat_->enqueue_fast_rejects_++;
+        } else {
+            HshaServerStat::TimeCost time_cost;
+            pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
+            pool_->hsha_server_stat_->worker_time_costs_ += time_cost.Cost();
         }
     } else {
-        HshaServerStat::TimeCost time_cost;
-        pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
-        pool_->hsha_server_stat_->worker_time_costs_ += time_cost.Cost();
+        if (queue_wait_time_ms >= MAX_QUEUE_WAIT_TIME_COST) {
+            //phxrpc::log(LOG_ERR, "------%s is_drop %d queue_wait_time_ms %d > MAX_QUEUE_WAIT_TIME_COST %d", __func__,
+            //is_drop,
+            //queue_wait_time_ms, MAX_QUEUE_WAIT_TIME_COST);
+            response->AddHeader(HttpMessage::HEADER_X_PHXRPC_RESULT, phxrpc::SocketStreamError_FastReject);
+            pool_->hsha_server_stat_->worker_drop_requests_++;
+        } else {
+            HshaServerStat::TimeCost time_cost;
+            pool_->dispatch_(*request, response, &(pool_->dispatcher_args_));
+            pool_->hsha_server_stat_->worker_time_costs_ += time_cost.Cost();
+        }
     }
+    
 
     pool_->data_flow_->PushResponse(args, response);
     pool_->hsha_server_stat_->outqueue_push_responses_++;
